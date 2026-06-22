@@ -871,9 +871,11 @@ function statusSpan(g) {
   const [cls, txt] = map[g.status] || map.wait;
   const span = el('span', { class: 'st ' + cls }, txt);
   if (g.pdfBlob) {
+    const eye = el('a', { class: 'bulk-dl', href: '#', title: 'Ver como ficou', style: 'margin-left:10px;' }, '👁 ver');
+    eye.addEventListener('click', (e) => { e.preventDefault(); previewOne(g); });
     const a = el('a', { class: 'bulk-dl', href: '#', style: 'margin-left:10px;' }, 'baixar');
     a.addEventListener('click', (e) => { e.preventDefault(); downloadOne(g); });
-    return el('span', {}, [span, a]);
+    return el('span', {}, [span, eye, a]);
   }
   return span;
 }
@@ -932,6 +934,15 @@ function downloadOne(g) {
   URL.revokeObjectURL(url);
 }
 
+// Abre o PDF já gerado numa nova aba, para conferir antes de baixar.
+function previewOne(g) {
+  if (!g.pdfBlob) return;
+  const url = URL.createObjectURL(g.pdfBlob);
+  const w = window.open(url, '_blank');
+  if (!w) { toast('Permita pop-ups para visualizar.', true); URL.revokeObjectURL(url); return; }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 // Adiciona o PDF pronto à lista de resultados (cada um com seu botão Baixar).
 function addResultRow(g) {
   $('#bulkResultsCard').classList.remove('hidden');
@@ -942,6 +953,7 @@ function addResultRow(g) {
       el('div', { class: 'result-file' + (g.avisos.length ? ' warn' : '') },
         g.filename + (g.avisos.length ? ' · ⚠ revisar avisos' : '')),
     ]),
+    el('button', { class: 'btn btn-ghost btn-sm', title: 'Ver como ficou', onclick: () => previewOne(g) }, '👁'),
     el('button', { class: 'btn btn-ghost btn-sm', onclick: () => downloadOne(g) }, '⬇️ Baixar'),
   ]);
   $('#bulkResults').appendChild(row);
