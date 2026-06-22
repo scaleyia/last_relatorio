@@ -609,16 +609,21 @@ function setupBulk() {
 function addBulkFiles(fileList) {
   for (const f of fileList) {
     if (f.type && f.type.startsWith('image/')) {
-      bulkItems.push({ file: f, cliente: '', tipo: '', identified: false, error: '' });
+      bulkItems.push({
+        file: f, url: URL.createObjectURL(f),
+        cliente: '', tipo: '', identified: false, error: '',
+      });
     }
   }
   renderStaging();
 }
 
 function clearBulk() {
+  bulkItems.forEach((it) => it.url && URL.revokeObjectURL(it.url));
   bulkItems = [];
   bulkGroups = [];
   $('#bulkInput').value = '';
+  $('#bulkThumbs').innerHTML = '';
   $('#bulkGroupsCard').classList.add('hidden');
   $('#bulkCount').textContent = '';
   $('#bulkResultsCard').classList.add('hidden');
@@ -636,6 +641,30 @@ function renderStaging() {
     ? `${n} print(s)` + (idCount ? ` · ${idCount} identificado(s)` : '')
     : '';
   $('#bulkIdentifyBtn').disabled = n === 0;
+
+  // galeria de miniaturas
+  const wrap = $('#bulkThumbs');
+  wrap.innerHTML = '';
+  bulkItems.forEach((it, idx) => {
+    const tipoTxt = it.tipo === 'visao' ? 'visão geral' : it.tipo === 'leilao' ? 'leilão' : '';
+    const cap = it.identified
+      ? (it.cliente || '— sem nome') + (tipoTxt ? ' · ' + tipoTxt : '')
+      : it.file.name;
+    const thumb = el('div', { class: 'thumb' }, [
+      el('button', { class: 'thumb-x', title: 'remover', onclick: () => removeItem(idx) }, '✕'),
+      el('img', { src: it.url, alt: '' }),
+      el('div', { class: 'thumb-cap' + (it.identified ? ' id' : ''), title: cap }, cap),
+    ]);
+    wrap.appendChild(thumb);
+  });
+}
+
+function removeItem(idx) {
+  const it = bulkItems[idx];
+  if (it && it.url) URL.revokeObjectURL(it.url);
+  bulkItems.splice(idx, 1);
+  renderStaging();
+  if (bulkGroups.length) buildGroups();
 }
 
 // ---- normalização para casar nomes ----
