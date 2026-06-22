@@ -28,13 +28,30 @@ No painel **⚙ Configurações da IA** no topo da página:
 
 ---
 
+## Deploy no Vercel
+
+O projeto já está preparado para serverless (`api/index.js` + `vercel.json`, PDF via `@sparticuz/chromium`).
+
+1. No Vercel: **Add New → Project** e importe o repositório `scaleyia/last_relatorio`.
+2. Em **Settings → Environment Variables**, cadastre:
+   - `OPENAI_API_KEY` = sua chave `sk-...` (**obrigatória**)
+   - `OPENAI_MODEL` = `gpt-5.4-mini` (opcional)
+3. **Deploy.** Pronto.
+
+Diferenças no Vercel (disco é somente-leitura):
+- **A chave vem da variável de ambiente** `OPENAI_API_KEY` — o campo de chave na interface fica somente-leitura indicando isso. (Trocar a chave = mudar a env var e refazer o deploy.)
+- **Modelo escolhido e lista de clientes ficam salvos no navegador** (localStorage), não no servidor.
+- A geração de PDF usa Chromium serverless. Em lotes grandes, cada PDF tem um pequeno custo de inicialização; o `maxDuration` está em 60s no `vercel.json`.
+
+---
+
 ## Como usar
 
 1. **Cliente & período** — escolha um cliente salvo (ou “➕ Novo cliente”), confira mês/ano e gestor.
    - Marque **“sem custo por conversão”** se o cliente preferir o card de *Cliques* no lugar.
-   - **💾 Salvar preferências** guarda gestor + preferência por cliente (em `data/clients.json`), pra não redigitar nos próximos meses.
+   - **💾 Salvar preferências** guarda gestor + preferência por cliente (no navegador), pra não redigitar nos próximos meses.
 2. **Prints** — arraste os 2 prints (visão geral + tabela de leilão). A ordem não importa.
-3. **Ler prints com a IA** — a Claude lê as imagens e preenche tudo.
+3. **Ler prints com a IA** — a OpenAI lê as imagens e preenche tudo.
 4. **Confira os dados** — todos os campos são editáveis (métricas, gráfico por semana, tabela de leilão, próximos passos). Avisos de transparência aparecem em destaque.
    - Use **👁 Pré-visualizar** para ver o relatório antes de baixar.
 5. **📄 Gerar Relatório (PDF)** — baixa `Relatório <Mês> - <Cliente>.pdf`.

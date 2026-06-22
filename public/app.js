@@ -113,23 +113,45 @@ let currentModel = '';
 async function loadSettings() {
   try {
     const s = await (await fetch('/api/settings')).json();
-    currentModel = s.model;
     const status = $('#settingsStatus');
     const removeBtn = $('#removeKeyBtn');
+    const saveBtn = $('#saveKeyBtn');
+    const input = $('#apiKey');
+
+    // Vercel/serverless: disco é só-leitura, a chave vem da env var OPENAI_API_KEY.
+    if (s.readonly) {
+      input.disabled = true;
+      saveBtn.disabled = true;
+      removeBtn.classList.add('hidden');
+      if (s.hasKey) {
+        status.textContent = '✅ chave via ambiente';
+        status.style.color = 'var(--forest)';
+        input.placeholder = s.keyMasked + ' — definida em OPENAI_API_KEY';
+        $('#keyStatus').textContent = 'Chave configurada pelas Environment Variables do Vercel (OPENAI_API_KEY).';
+      } else {
+        status.textContent = '⚠️ defina OPENAI_API_KEY no Vercel';
+        status.style.color = 'var(--danger)';
+        input.placeholder = 'definir em Vercel → Settings → Environment Variables';
+        $('#keyStatus').textContent =
+          'Sem chave. Cadastre OPENAI_API_KEY nas Environment Variables do projeto no Vercel e refaça o deploy.';
+      }
+      return;
+    }
+
+    // Local: chave gerenciada pela interface (data/settings.json)
     if (s.hasKey) {
       status.textContent = '✅ chave configurada';
       status.style.color = 'var(--forest)';
       $('#keyStatus').textContent =
         'Chave salva: ' + s.keyMasked +
         (s.keyFromEnv ? ' (via .env — remova no arquivo)' : ' · para trocar, cole uma nova e salve');
-      $('#apiKey').placeholder = s.keyMasked + ' — deixe em branco para manter';
-      // só dá pra remover pela interface a chave salva aqui (não a do .env)
+      input.placeholder = s.keyMasked + ' — deixe em branco para manter';
       removeBtn.classList.toggle('hidden', s.keyFromEnv);
     } else {
       status.textContent = '⚠️ cole sua API key abaixo';
       status.style.color = 'var(--danger)';
       $('#keyStatus').textContent = 'Nenhuma chave configurada ainda.';
-      $('#apiKey').placeholder = 'sk-...';
+      input.placeholder = 'sk-...';
       removeBtn.classList.add('hidden');
     }
   } catch {}
@@ -171,23 +193,25 @@ async function removeKey() {
   }
 }
 
-async function loadModels(fromAccount) {
+const MODEL_KEY = 'lastone_model';
+
+async function loadModels(_fromAccount) {
   const sel = $('#modelSelect');
   const st = $('#modelStatus');
   st.textContent = 'carregando…';
   try {
     const data = await (await fetch('/api/models')).json();
     const models = data.models || [];
-    currentModel = data.current || currentModel;
+    // fonte do modelo: navegador (localStorage) > padrão do servidor > 1º da lista
+    currentModel = localStorage.getItem(MODEL_KEY) || data.current || models[0] || '';
     sel.innerHTML = '';
-    // garante que o modelo atual aparece mesmo se não estiver na lista
     if (currentModel && !models.includes(currentModel)) models.unshift(currentModel);
     models.forEach((m) => sel.appendChild(el('option', { value: m }, m)));
     sel.value = currentModel;
     st.textContent =
       data.source === 'account'
         ? `${models.length} modelos da sua conta`
-        : 'lista padrão (salve a chave para ver os da sua conta)';
+        : 'lista padrão (configure a chave para ver os da sua conta)';
     if (data.error) st.textContent += ' · ' + data.error;
   } catch {
     st.textContent = 'não consegui carregar modelos';
@@ -196,23 +220,29 @@ async function loadModels(fromAccount) {
 
 async function saveModel() {
   const model = $('#modelSelect').value;
+  currentModel = model;
+  localStorage.setItem(MODEL_KEY, model); // fonte da verdade (enviado em cada requisição)
+  // tenta persistir no servidor também (no local funciona; no Vercel é no-op)
   try {
     await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model }),
     });
-    currentModel = model;
-    toast('Modelo: ' + model);
-  } catch (e) {
-    toast('Erro ao salvar modelo.', true);
-  }
+  } catch {}
+  toast('Modelo: ' + model);
 }
 
-// ----- Clientes -----
+// ----- Clientes (guardados no navegador — funciona local e no Vercel) -----
+const CLIENTS_KEY = 'lastone_clients';
 let clients = [];
+function readClientsLS() {
+  try { return JSON.parse(localStorage.getItem(CLIENTS_KEY)) || []; } catch { return []; }
+}
+function writeClientsLS(list) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(list)); }
+
 async function loadClients() {
-  clients = await (await fetch('/api/clients')).json();
+  clients = readClientsLS();
   const sel = $('#clienteSelect');
   sel.innerHTML = '';
   sel.appendChild(el('option', { value: '__new' }, '➕ Novo cliente…'));
@@ -238,17 +268,17 @@ function onClientChange() {
 async function saveClient() {
   const nome = $('#clienteNome').value.trim();
   if (!nome) return toast('Informe o nome da farmácia.', true);
-  const body = {
+  const entry = {
     nome,
     gestor: $('#gestor').value.trim(),
     semCustoPorConversao: $('#semCpc').checked,
   };
-  const r = await fetch('/api/clients', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) return toast('Erro ao salvar cliente.', true);
+  const list = readClientsLS();
+  const i = list.findIndex((c) => c.nome.toLowerCase() === nome.toLowerCase());
+  if (i >= 0) list[i] = { ...list[i], ...entry };
+  else list.push(entry);
+  list.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  writeClientsLS(list);
   await loadClients();
   $('#clienteSelect').value = nome;
   toast('Cliente salvo.');
@@ -291,6 +321,7 @@ async function doExtract() {
     fd.append('prints', files[1]);
     fd.append('cliente', cliente);
     fd.append('semCustoPorConversao', $('#semCpc').checked ? 'true' : 'false');
+    if (currentModel) fd.append('model', currentModel);
 
     const r = await fetch('/api/extract', { method: 'POST', body: fd });
     const data = await r.json();
@@ -654,6 +685,7 @@ async function identifyAll() {
       try {
         const fd = new FormData();
         fd.append('print', it.file);
+        if (currentModel) fd.append('model', currentModel);
         const r = await fetch('/api/identify', { method: 'POST', body: fd });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || 'falha');
@@ -855,6 +887,7 @@ async function processGroup(g) {
     fd.append('prints', g.items[1].file);
     fd.append('cliente', g.cliente);
     fd.append('semCustoPorConversao', g.semCpc ? 'true' : 'false');
+    if (currentModel) fd.append('model', currentModel);
 
     const r = await fetch('/api/extract', { method: 'POST', body: fd });
     const data = await r.json();

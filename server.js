@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { extractFromPrints, listModels, identifyImage } from './lib/extract.js';
 import { buildHtml, reportFilename } from './lib/report.js';
 import { htmlToPdf, closeBrowser } from './lib/pdf.js';
-import { readSettings, writeSettings, clearApiKey, getApiKey, getModel, maskKey } from './lib/settings.js';
+import { readSettings, writeSettings, clearApiKey, getApiKey, getModel, maskKey, READONLY_FS } from './lib/settings.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -39,6 +39,7 @@ app.get('/api/settings', (_req, res) => {
     hasKey: !!key,
     keyMasked: maskKey(key),
     keyFromEnv: !s.apiKey && !!process.env.OPENAI_API_KEY,
+    readonly: READONLY_FS, // no Vercel a chave/modelo vêm do ambiente, não do disco
     model: getModel(),
   });
 });
@@ -122,8 +123,9 @@ app.post('/api/extract', upload.array('prints', 2), async (req, res) => {
     }
     const cliente = req.body.cliente || '';
     const semCustoPorConversao = req.body.semCustoPorConversao === 'true';
+    const model = req.body.model || undefined;
 
-    const dados = await extractFromPrints({ files, cliente, semCustoPorConversao });
+    const dados = await extractFromPrints({ files, cliente, semCustoPorConversao, model });
     res.json(dados);
   } catch (err) {
     console.error('Erro na extração:', err);
@@ -138,7 +140,7 @@ app.post('/api/identify', upload.single('print'), async (req, res) => {
       return res.status(500).json({ error: 'Configure a API key no painel "Configurações".' });
     }
     if (!req.file) return res.status(400).json({ error: 'Envie uma imagem.' });
-    const data = await identifyImage({ file: req.file });
+    const data = await identifyImage({ file: req.file, model: req.body.model || undefined });
     res.json(data);
   } catch (err) {
     console.error('Erro na identificação:', err);
@@ -183,11 +185,16 @@ app.get('/api/health', (_req, res) =>
   res.json({ ok: true, hasKey: !!getApiKey(), model: getModel() })
 );
 
-const server = app.listen(PORT, () => {
-  console.log(`\n✅ Gerador de Relatórios LastOne rodando em  http://localhost:${PORT}\n`);
-});
+// No Vercel (serverless) o app é importado por api/index.js — não chamamos listen.
+// Local: sobe o servidor normalmente.
+export default app;
 
-process.on('SIGINT', async () => {
-  await closeBrowser();
-  server.close(() => process.exit(0));
-});
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, () => {
+    console.log(`\n✅ Gerador de Relatórios LastOne rodando em  http://localhost:${PORT}\n`);
+  });
+  process.on('SIGINT', async () => {
+    await closeBrowser();
+    server.close(() => process.exit(0));
+  });
+}
