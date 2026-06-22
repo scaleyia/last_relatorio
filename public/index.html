@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerador de Relatórios LastOne</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <img src="/assets/logo.png" alt="LastOne" />
+    <span class="sub">Gerador de Relatórios · Google Ads</span>
+  </header>
+
+  <div class="wrap">
+
+    <!-- CONFIGURAÇÕES (chave + modelo) -->
+    <section class="card" id="settingsCard">
+      <div class="step-head">
+        <div class="num">⚙</div>
+        <h2>Configurações da IA</h2>
+        <span class="hint" id="settingsStatus"></span>
+      </div>
+
+      <div class="grid cols-2">
+        <label class="field">
+          <span>API Key da OpenAI</span>
+          <div class="chip-row" style="flex-wrap:nowrap;">
+            <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off" style="flex:1;" />
+            <button class="btn btn-primary btn-sm" id="saveKeyBtn" style="white-space:nowrap;">Salvar chave</button>
+            <button class="btn btn-link hidden" id="removeKeyBtn" style="white-space:nowrap;">🗑 Remover</button>
+          </div>
+          <div class="muted" id="keyStatus" style="margin-top:6px;"></div>
+        </label>
+
+        <label class="field">
+          <span>Modelo de IA</span>
+          <div class="chip-row" style="flex-wrap:nowrap;">
+            <select id="modelSelect" style="flex:1;"></select>
+            <button class="btn btn-ghost btn-sm" id="reloadModelsBtn" title="Buscar modelos da sua conta" style="white-space:nowrap;">↻</button>
+          </div>
+          <div class="muted" id="modelStatus" style="margin-top:6px;"></div>
+        </label>
+      </div>
+    </section>
+
+    <!-- ABAS -->
+    <div class="tabs">
+      <button class="tab active" data-mode="bulk">⚡ Geração em massa</button>
+      <button class="tab" data-mode="individual">👤 Um cliente</button>
+    </div>
+
+    <!-- ===================== MODO INDIVIDUAL ===================== -->
+    <div id="modeIndividual" class="hidden">
+
+    <!-- ETAPA 1 — CLIENTE -->
+    <section class="card">
+      <div class="step-head">
+        <div class="num">1</div>
+        <h2>Cliente &amp; período</h2>
+        <span class="hint" id="modelHint"></span>
+      </div>
+
+      <div class="grid cols-2">
+        <label class="field">
+          <span>Cliente</span>
+          <select id="clienteSelect">
+            <option value="__new">➕ Novo cliente…</option>
+          </select>
+        </label>
+        <label class="field" id="novoClienteWrap">
+          <span>Nome da farmácia</span>
+          <input type="text" id="clienteNome" placeholder="Ex.: Biothera" />
+        </label>
+      </div>
+
+      <div class="grid cols-3" style="margin-top:14px;">
+        <label class="field">
+          <span>Mês de referência</span>
+          <select id="mes"></select>
+        </label>
+        <label class="field">
+          <span>Ano</span>
+          <input type="number" id="ano" value="2026" />
+        </label>
+        <label class="field">
+          <span>Gestor responsável</span>
+          <input type="text" id="gestor" placeholder="Ex.: Gabriel Freire" />
+        </label>
+      </div>
+
+      <div class="grid cols-3" style="margin-top:14px; align-items:end;">
+        <label class="field">
+          <span>Período do relatório</span>
+          <select id="iPerMode">
+            <option value="mes">Mês inteiro</option>
+            <option value="custom">Período personalizado</option>
+          </select>
+        </label>
+        <label class="field hidden" id="iPerDeWrap"><span>Do dia</span><input type="number" id="iPerDe" min="1" max="31" value="1" /></label>
+        <label class="field hidden" id="iPerAteWrap"><span>Até o dia</span><input type="number" id="iPerAte" min="1" max="31" value="31" /></label>
+      </div>
+      <div class="muted" id="iPerView" style="margin-top:6px;"></div>
+
+      <div class="actions" style="margin-top:16px;">
+        <label class="checkrow">
+          <input type="checkbox" id="semCpc" />
+          Cliente sem “custo por conversão” (usar card de Cliques)
+        </label>
+        <button class="btn btn-ghost btn-sm" id="saveClientBtn" style="margin-left:auto;">💾 Salvar preferências do cliente</button>
+      </div>
+    </section>
+
+    <!-- ETAPA 2 — UPLOAD -->
+    <section class="card">
+      <div class="step-head">
+        <div class="num">2</div>
+        <h2>Prints do Google Ads</h2>
+        <span class="hint">A ordem não importa</span>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="dropzone" id="dz1">
+          <div class="dz-label">Print 1 — Visão geral / Resumo</div>
+          <div class="dz-hint">Cards de conversões, custo, CPC + período</div>
+          <input type="file" accept="image/*" class="hidden" />
+        </div>
+        <div class="dropzone" id="dz2">
+          <div class="dz-label">Print 2 — Informações de leilão</div>
+          <div class="dz-hint">Tabela de concorrentes / parcela de impressões</div>
+          <input type="file" accept="image/*" class="hidden" />
+        </div>
+      </div>
+
+      <div class="actions" style="margin-top:18px;">
+        <button class="btn btn-primary" id="extractBtn" disabled>
+          <span id="extractLabel">🔍 Ler prints com a IA</span>
+        </button>
+        <span class="muted" id="extractStatus"></span>
+      </div>
+    </section>
+
+    <!-- ETAPA 3 — CONFERÊNCIA -->
+    <section class="card hidden" id="reviewCard">
+      <div class="step-head">
+        <div class="num">3</div>
+        <h2>Confira os dados extraídos</h2>
+        <span class="hint">Edite qualquer campo antes de gerar</span>
+      </div>
+
+      <div class="avisos hidden" id="avisosBox"></div>
+
+      <div class="grid cols-2">
+        <label class="field"><span>Período (como no print)</span><input type="text" id="periodo" /></label>
+        <label class="field"><span>Gerado em</span><input type="text" id="geradoEm" /></label>
+      </div>
+
+      <div class="subtitle">Métricas (4 cards)</div>
+      <div class="grid cols-4" id="metricasGrid"></div>
+
+      <div class="subtitle">Gráfico — conversões por semana</div>
+      <label class="field"><span>Subtítulo</span><input type="text" id="graficoSub" /></label>
+      <div id="graficoRows" style="margin-top:10px;"></div>
+      <button class="btn btn-ghost btn-sm" id="addSemana" style="margin-top:8px;">+ semana</button>
+      <div class="muted" id="somaSemanas" style="margin-top:6px;"></div>
+
+      <div class="subtitle">Informações de leilão</div>
+      <div style="overflow-x:auto;">
+        <table class="editor" id="leilaoTable">
+          <thead><tr>
+            <th style="width:30%">Concorrente</th><th>Parcela</th><th>Sobrep.</th>
+            <th>Pos. acima</th><th>Topo</th><th class="center">Você</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="addLeilao" style="margin-top:8px;">+ concorrente</button>
+
+      <div class="subtitle">Próximos passos &amp; otimizações (4)</div>
+      <div class="grid cols-2" id="passosGrid"></div>
+      <button class="btn btn-ghost btn-sm" id="addPasso" style="margin-top:8px;">+ passo</button>
+
+      <div class="actions" style="margin-top:24px;">
+        <button class="btn btn-forest" id="generateBtn">
+          <span id="genLabel">📄 Gerar Relatório (PDF)</span>
+        </button>
+        <button class="btn btn-ghost" id="previewBtn">👁 Pré-visualizar</button>
+        <span class="muted" id="genStatus"></span>
+      </div>
+    </section>
+
+    </div><!-- /modeIndividual -->
+
+    <!-- ===================== MODO EM MASSA ===================== -->
+    <div id="modeBulk">
+
+      <section class="card">
+        <div class="step-head">
+          <div class="num">1</div>
+          <h2>Período &amp; gestor (vale para todos)</h2>
+        </div>
+        <div class="grid cols-3">
+          <label class="field"><span>Mês de referência</span><select id="bMes"></select></label>
+          <label class="field"><span>Ano</span><input type="number" id="bAno" value="2026" /></label>
+          <label class="field"><span>Gestor responsável</span><input type="text" id="bGestor" placeholder="Ex.: Gabriel Freire" /></label>
+        </div>
+        <div class="grid cols-3" style="margin-top:14px; align-items:end;">
+          <label class="field">
+            <span>Período do relatório</span>
+            <select id="bPerMode">
+              <option value="mes">Mês inteiro</option>
+              <option value="custom">Período personalizado</option>
+            </select>
+          </label>
+          <label class="field hidden" id="bPerDeWrap"><span>Do dia</span><input type="number" id="bPerDe" min="1" max="31" value="1" /></label>
+          <label class="field hidden" id="bPerAteWrap"><span>Até o dia</span><input type="number" id="bPerAte" min="1" max="31" value="31" /></label>
+        </div>
+        <div class="muted" id="bPerView" style="margin-top:6px;"></div>
+      </section>
+
+      <section class="card">
+        <div class="step-head">
+          <div class="num">2</div>
+          <h2>Solte todos os prints</h2>
+          <span class="hint">2 prints por cliente</span>
+        </div>
+
+        <div class="dropzone" id="bulkDz">
+          <div class="dz-label">Arraste todos os prints aqui (ou clique para escolher)</div>
+          <div class="dz-hint">
+            A IA lê o nome do cliente <b>dentro de cada print</b> — não precisa renomear os arquivos.
+            Solte todos de uma vez (2 prints por cliente: visão geral + leilão).
+          </div>
+          <input type="file" accept="image/*" multiple class="hidden" id="bulkInput" />
+        </div>
+        <div class="actions" style="margin-top:12px;">
+          <button class="btn btn-primary btn-sm" id="bulkIdentifyBtn" disabled>
+            <span id="bulkIdLabel">🔎 Identificar clientes</span>
+          </button>
+          <span class="muted" id="bulkCount"></span>
+          <button class="btn btn-link" id="bulkClear" style="margin-left:auto;">limpar</button>
+        </div>
+        <div class="bulk-bar hidden" id="bulkIdBarWrap"><div class="bulk-bar-fill" id="bulkIdBarFill"></div></div>
+      </section>
+
+      <section class="card hidden" id="bulkGroupsCard">
+        <div class="step-head">
+          <div class="num">3</div>
+          <h2>Clientes detectados</h2>
+          <span class="hint">Confira os nomes e quantidade de prints</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="editor" id="bulkTable">
+            <thead><tr>
+              <th style="width:42%">Cliente</th><th class="center">Prints</th>
+              <th class="center">Sem CPC</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="actions" style="margin-top:20px;">
+          <button class="btn btn-forest" id="bulkRunBtn">
+            <span id="bulkRunLabel">⚡ Gerar todos os relatórios</span>
+          </button>
+          <span class="muted" id="bulkProgress"></span>
+        </div>
+        <div class="bulk-bar hidden" id="bulkBarWrap"><div class="bulk-bar-fill" id="bulkBarFill"></div></div>
+      </section>
+
+      <!-- ETAPA 4 — RESULTADOS (PDFs separados, cada um com seu botão) -->
+      <section class="card hidden" id="bulkResultsCard">
+        <div class="step-head">
+          <div class="num">4</div>
+          <h2>Relatórios gerados</h2>
+          <button class="btn btn-primary btn-sm" id="bulkZipBtn" style="margin-left:auto;">⬇️ Baixar todos (ZIP)</button>
+        </div>
+        <div id="bulkResults"></div>
+      </section>
+
+    </div><!-- /modeBulk -->
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/vendor/jszip.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "gerador-relatorio-lastone",
+  "version": "1.0.0",
+  "description": "Gerador de Relatórios Google Ads no padrão LastOne — lê 2 prints com a OpenAI API e gera o PDF.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.0.0",
+    "express": "^5.1.0",
+    "jszip": "^3.10.1",
+    "multer": "^2.0.0",
+    "openai": "^6.44.0",
+    "puppeteer": "^24.0.0"
+  }
+}
