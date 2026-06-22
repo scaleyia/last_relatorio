@@ -125,14 +125,14 @@
       </div>
 
       <div class="grid cols-2">
-        <div class="dropzone" id="dz1">
+        <div class="dropzone" id="dz1" tabindex="0">
           <div class="dz-label">Print 1 — Visão geral / Resumo</div>
-          <div class="dz-hint">Cards de conversões, custo, CPC + período</div>
+          <div class="dz-hint">Cards de conversões, custo, CPC + período · clique, arraste ou cole (Ctrl+V)</div>
           <input type="file" accept="image/*" class="hidden" />
         </div>
-        <div class="dropzone" id="dz2">
+        <div class="dropzone" id="dz2" tabindex="0">
           <div class="dz-label">Print 2 — Informações de leilão</div>
-          <div class="dz-hint">Tabela de concorrentes / parcela de impressões</div>
+          <div class="dz-hint">Tabela de concorrentes / parcela de impressões · clique, arraste ou cole (Ctrl+V)</div>
           <input type="file" accept="image/*" class="hidden" />
         </div>
       </div>
@@ -236,8 +236,8 @@
           identifica e agrupa cada cliente — prints sem o nome da conta visível não serão agrupados corretamente.
         </div>
 
-        <div class="dropzone" id="bulkDz">
-          <div class="dz-label">Arraste todos os prints aqui (ou clique para escolher)</div>
+        <div class="dropzone" id="bulkDz" tabindex="0">
+          <div class="dz-label">Arraste todos os prints aqui (clique para escolher ou cole com Ctrl+V)</div>
           <div class="dz-hint">
             A IA lê o nome do cliente <b>dentro de cada print</b> — não precisa renomear os arquivos.
             Solte todos de uma vez (2 prints por cliente: visão geral + leilão).

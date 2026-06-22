@@ -63,6 +63,41 @@ function toast(msg, isErr = false) {
 }
 
 const files = [null, null]; // print 1, print 2
+let activeSingleIdx = -1; // último dropzone individual focado/clicado (-1 = nenhum)
+
+// Extrai imagens da área de transferência (Ctrl+V)
+function imagesFromClipboard(e) {
+  const items = e.clipboardData && e.clipboardData.items ? [...e.clipboardData.items] : [];
+  return items
+    .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+    .map((it) => it.getAsFile())
+    .filter(Boolean);
+}
+
+// Colar imagem (Ctrl+V) carrega no campo certo conforme a aba ativa
+function handleGlobalPaste(e) {
+  const imgs = imagesFromClipboard(e);
+  if (!imgs.length) return;
+  e.preventDefault();
+
+  const bulkVisible = !$('#modeBulk').classList.contains('hidden');
+  if (bulkVisible) {
+    addBulkFiles(imgs);
+    toast(`${imgs.length} print(s) colado(s) ✓`);
+    return;
+  }
+
+  // modo individual: usa o campo focado, senão preenche os vazios em ordem
+  let target = activeSingleIdx >= 0 ? activeSingleIdx : files.findIndex((f) => !f);
+  if (target < 0) target = 0;
+  for (const img of imgs.slice(0, 2)) {
+    setFile(target === 0 ? $('#dz1') : $('#dz2'), target, img);
+    const empty = files.findIndex((f) => !f);
+    target = empty !== -1 ? empty : (target === 0 ? 1 : 0);
+  }
+  activeSingleIdx = -1;
+  toast('Print colado ✓');
+}
 
 // ----- Init -----
 async function init() {
@@ -94,6 +129,7 @@ async function init() {
   await loadClients();
   setupDropzone($('#dz1'), 0);
   setupDropzone($('#dz2'), 1);
+  document.addEventListener('paste', handleGlobalPaste);
 
   $('#clienteSelect').addEventListener('change', onClientChange);
   $('#saveClientBtn').addEventListener('click', saveClient);
@@ -287,6 +323,9 @@ async function saveClient() {
 // ----- Dropzones -----
 function setupDropzone(dz, idx) {
   const input = dz.querySelector('input[type="file"]');
+  const markActive = () => { activeSingleIdx = idx; };
+  dz.addEventListener('mousedown', markActive);
+  dz.addEventListener('focus', markActive);
   dz.addEventListener('click', () => input.click());
   input.addEventListener('change', () => input.files[0] && setFile(dz, idx, input.files[0]));
   ['dragover', 'dragenter'].forEach((ev) =>
